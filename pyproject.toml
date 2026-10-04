@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "dronecalc"
 version = "0.1.0"
-description = "DroneCalc"
+description = "Multirotor sizing: mission requirements to ranked feasible builds"
 readme = "README.md"
 requires-python = ">=3.9"
 dependencies = [
@@ -19,7 +19,7 @@ dev = [
 ]
 
 [project.scripts]
-dronecalc = "dronecalc.__main__:main"
+dronecalc = "dronecalc.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

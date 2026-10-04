@@ -1,0 +1,4 @@
+# Reference thrust-table points for model validation. One row per measured point.
+# thrust_g is per motor; current_a / power_w are battery-side. Add REAL manufacturer or bench data
+# here (with a source); see data/validation/README.md. This file intentionally ships empty.
+motor_id,prop_id,voltage_v,thrust_g,current_a,power_w,source

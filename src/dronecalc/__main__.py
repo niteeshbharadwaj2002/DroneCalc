@@ -1,11 +1,8 @@
 """Entry point: `python -m dronecalc` or the `dronecalc` command."""
 
-from dronecalc import __version__
+import sys
 
-
-def main() -> None:
-    print(f"DroneCalc {__version__}")
-
+from dronecalc.cli import main
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

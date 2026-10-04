@@ -1,5 +1,10 @@
 # DroneCalc
 
+Multirotor sizing: turns mission requirements into ranked, feasible builds (forward mode) or
+predicts flight time and maximum payload for a given component set (reverse mode). Phase 1 is the
+UI-independent CLI core. Results are **predicted, unverified**. See `docs/PHASE1_PLAN.md` and
+`docs/API.md`.
+
 ## Setup (macOS or Linux)
 
 ```bash
@@ -18,12 +23,24 @@ make test     # pytest
 make lint     # ruff check
 ```
 
+```bash
+dronecalc size --time 20 --payload 0.5 --altitude 500 --top 5        # forward sizing
+dronecalc size --time 15 --payload 1 --rotors 6 --temp-offset -20 --json
+dronecalc reverse --motor tmotor-mn4006-380 --prop generic-15x5.0 \
+    --battery lipo-6s-10000 --esc generic-esc-40a-6s --payload 1.0   # reverse sizing
+dronecalc db list motors          # inspect the component database
+dronecalc validate                # compare with reference thrust tables (data/validation)
+```
+
 ## Layout
 
 ```
-src/dronecalc/   application code (import as `import dronecalc`)
+src/dronecalc/core/   UI-independent physics, database and sizing (frozen API, see docs/API.md)
+src/dronecalc/cli.py  command-line front end
 tests/           pytest tests
-data/            input/output data files
+data/seed/       curated component database (approximate, verified=false)
+data/custom/     user-defined components (override seed entries by id)
+data/validation/ reference thrust-table points for `dronecalc validate`
 scripts/         setup and helper scripts
 docs/            documentation
 ```

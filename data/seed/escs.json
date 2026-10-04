@@ -1,0 +1,7 @@
+[
+  {"id": "generic-esc-20a-4s", "name": "Generic 20A ESC (2-4S)", "max_current_a": 20, "min_cells": 2, "max_cells": 4, "mass_g": 25, "price_usd": 12, "verified": false, "notes": "approximate generic ESC; verify before relying on results"},
+  {"id": "generic-esc-30a-4s", "name": "Generic 30A ESC (2-4S)", "max_current_a": 30, "min_cells": 2, "max_cells": 4, "mass_g": 30, "price_usd": 15, "verified": false, "notes": "approximate generic ESC; verify before relying on results"},
+  {"id": "generic-esc-40a-6s", "name": "Generic 40A ESC (3-6S)", "max_current_a": 40, "min_cells": 3, "max_cells": 6, "mass_g": 38, "price_usd": 28, "verified": false, "notes": "approximate generic ESC; verify before relying on results"},
+  {"id": "generic-esc-60a-6s", "name": "Generic 60A ESC (3-6S)", "max_current_a": 60, "min_cells": 3, "max_cells": 6, "mass_g": 55, "price_usd": 38, "verified": false, "notes": "approximate generic ESC; verify before relying on results"},
+  {"id": "generic-esc-80a-12s", "name": "Generic 80A ESC (6-12S)", "max_current_a": 80, "min_cells": 6, "max_cells": 12, "mass_g": 90, "price_usd": 60, "verified": false, "notes": "approximate generic ESC; verify before relying on results"}
+]
