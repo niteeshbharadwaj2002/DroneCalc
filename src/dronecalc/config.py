@@ -6,8 +6,11 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-# Project root = two levels above this file (src/dronecalc/config.py).
-ROOT_DIR = Path(__file__).resolve().parents[2]
+# True inside a PyInstaller bundle, where data files are unpacked next to the executable.
+FROZEN = bool(getattr(sys, "frozen", False))
+
+# Project root = two levels above this file (src/dronecalc/config.py); the bundle root when frozen.
+ROOT_DIR = Path(getattr(sys, "_MEIPASS", "")) if FROZEN else Path(__file__).resolve().parents[2]
 DATA_DIR = ROOT_DIR / "data"
 
 load_dotenv(ROOT_DIR / ".env")
@@ -33,6 +36,6 @@ def default_custom_dir() -> Path:
     override = os.getenv("DRONECALC_CUSTOM_DIR")
     if override:
         return Path(override).expanduser()
-    if (DATA_DIR / "seed").is_dir():
+    if not FROZEN and (DATA_DIR / "seed").is_dir():
         return DATA_DIR / "custom"
     return user_data_dir() / "custom"
