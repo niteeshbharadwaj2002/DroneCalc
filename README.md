@@ -2,8 +2,8 @@
 
 Multirotor sizing: turns mission requirements into ranked, feasible builds (forward mode) or
 predicts flight time and maximum payload for a given component set (reverse mode). Phase 1 is the
-UI-independent CLI core. Results are **predicted, unverified**. See `docs/PHASE1_PLAN.md` and
-`docs/API.md`.
+UI-independent CLI core; Phase 2 adds the PySide6 desktop app (`dronecalc gui`). Results are **predicted, unverified**. See `docs/PHASE1_PLAN.md`,
+`docs/PHASE2_PLAN.md` and `docs/API.md`.
 
 ## Setup (macOS or Linux)
 
@@ -19,6 +19,7 @@ Linux prerequisite (Debian/Ubuntu): `sudo apt install python3 python3-venv pytho
 
 ```bash
 make run      # python -m dronecalc
+make gui      # desktop app (same as: dronecalc gui  or  dronecalc-gui)
 make test     # pytest
 make lint     # ruff check
 ```
@@ -37,6 +38,7 @@ dronecalc validate                # compare with reference thrust tables (data/v
 ```
 src/dronecalc/core/   UI-independent physics, database and sizing (frozen API, see docs/API.md)
 src/dronecalc/cli.py  command-line front end
+src/dronecalc/ui/     PySide6 desktop app (state, workers, five screens); imports core only
 tests/           pytest tests
 data/seed/       curated component database (approximate, verified=false)
 data/custom/     user-defined components (override seed entries by id)

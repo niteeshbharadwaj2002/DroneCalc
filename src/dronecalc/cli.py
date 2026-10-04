@@ -90,6 +90,8 @@ def build_parser() -> argparse.ArgumentParser:
     dbp.add_argument("action", choices=["list", "check"])
     dbp.add_argument("kind", nargs="?", choices=["motors", "props", "batteries", "escs"])
 
+    sub.add_parser("gui", help="launch the desktop app (needs the 'ui' extra: PySide6, pyqtgraph)")
+
     val = sub.add_parser("validate", help="compare the model with reference thrust-table data")
     val.add_argument("--csv", help="reference CSV (default data/validation/reference_points.csv)")
     val.add_argument("--tolerance", type=float, default=0.15)
@@ -144,7 +146,10 @@ def _cmd_size(args: argparse.Namespace) -> int:
         f"{atm.altitude_m:g} m, ISA{atm.temp_offset_c:+g} K -> density {atm.density:.3f} kg/m^3 "
         f"(density altitude {round(atm.density_altitude_m):d} m)"
     )
-    print(f"Configurations evaluated: {res.n_candidates}; feasible builds: {res.n_feasible}\n")
+    print(
+        f"Candidate configurations: {res.n_candidates}; feasible builds: {res.n_feasible} "
+        "(up to 3 real batteries per configuration)\n"
+    )
     if not res.ranked:
         print("No feasible build found. Rejection reasons (count):")
         for code, n in sorted(res.rejections.items(), key=lambda kv: -kv[1]):
@@ -287,6 +292,19 @@ def _cmd_validate(args: argparse.Namespace) -> int:
     return 0 if report.criterion_met else 2
 
 
+def _cmd_gui(_args: argparse.Namespace) -> int:
+    try:
+        from dronecalc.ui.app import main as gui_main
+    except ImportError as exc:
+        print(
+            f"error: the desktop UI needs PySide6 and pyqtgraph ({exc}). "
+            'Install with: pip install -e ".[ui]"',
+            file=sys.stderr,
+        )
+        return 2
+    return gui_main()
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -299,6 +317,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "reverse": _cmd_reverse,
         "db": _cmd_db,
         "validate": _cmd_validate,
+        "gui": _cmd_gui,
     }
     try:
         return handlers[args.command](args)

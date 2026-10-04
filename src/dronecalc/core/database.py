@@ -8,16 +8,17 @@ Files live in ``data/seed`` (shipped) and ``data/custom`` (user). Each kind is o
 from __future__ import annotations
 
 import json
+from collections.abc import Iterable
 from dataclasses import asdict, fields
 from pathlib import Path
 from statistics import median
 from typing import Any
 
-from dronecalc.config import DATA_DIR
+from dronecalc.config import DATA_DIR, default_custom_dir
 from dronecalc.core.models import ESC, Battery, Motor, Propeller
 
 SEED_DIR = DATA_DIR / "seed"
-CUSTOM_DIR = DATA_DIR / "custom"
+CUSTOM_DIR = default_custom_dir()
 
 KINDS: dict[str, type] = {
     "motors": Motor,
@@ -63,6 +64,7 @@ class Database:
         self.batteries: dict[str, Battery] = {}
         self.escs: dict[str, ESC] = {}
         self.custom_ids: dict[str, set] = {k: set() for k in KINDS}
+        self._seed: dict[str, dict[str, Any]] = {k: {} for k in KINDS}
         self.load_warnings: list[str] = []
 
     # ---- construction ----------------------------------------------------------------------
@@ -97,6 +99,8 @@ class Database:
             table[item.id] = item
             if custom:
                 self.custom_ids[kind].add(item.id)
+            else:
+                self._seed[kind][item.id] = item
 
     # ---- queries ---------------------------------------------------------------------------
 
@@ -106,10 +110,18 @@ class Database:
         except KeyError:
             raise KeyError(f"no {kind} entry with id {entry_id!r}") from None
 
-    def battery_groups(self) -> dict[tuple[str, int], list[Battery]]:
-        """Batteries grouped by (chemistry, cell count), each sorted by ascending capacity."""
+    def battery_groups(
+        self, allowed_ids: Iterable[str] | None = None
+    ) -> dict[tuple[str, int], list[Battery]]:
+        """Batteries grouped by (chemistry, cell count), each sorted by ascending capacity.
+
+        ``allowed_ids`` restricts the packs considered (``None`` means all).
+        """
+        allowed = None if allowed_ids is None else set(allowed_ids)
         groups: dict[tuple[str, int], list[Battery]] = {}
         for b in self.batteries.values():
+            if allowed is not None and b.id not in allowed:
+                continue
             groups.setdefault((b.chemistry, b.cells), []).append(b)
         for packs in groups.values():
             packs.sort(key=lambda b: (b.capacity_mah, b.id))
@@ -136,6 +148,33 @@ class Database:
         entries.append(asdict(item))
         file.write_text(json.dumps(entries, indent=2) + "\n", encoding="utf-8")
         return item
+
+    def update_custom(
+        self, kind: str, entry: dict[str, Any], custom_dir: Path | None = None
+    ) -> Any:
+        """Replace a custom entry with the same ``id`` (alias of ``add_custom``)."""
+        return self.add_custom(kind, entry, custom_dir)
+
+    def is_custom(self, kind: str, entry_id: str) -> bool:
+        return entry_id in self.custom_ids[kind]
+
+    def delete_custom(self, kind: str, entry_id: str, custom_dir: Path | None = None) -> None:
+        """Remove a user-defined entry. A seed entry it overrode is restored; seed-only ids fail."""
+        if kind not in KINDS:
+            raise DatabaseError(f"unknown kind {kind!r}; choose from {sorted(KINDS)}")
+        if entry_id not in self.custom_ids[kind]:
+            raise DatabaseError(f"{kind} entry {entry_id!r} is not a custom entry")
+        path = Path(custom_dir) if custom_dir is not None else CUSTOM_DIR
+        file = path / f"{kind}.json"
+        entries = [e for e in _read_list(file) if e.get("id") != entry_id]
+        path.mkdir(parents=True, exist_ok=True)
+        file.write_text(json.dumps(entries, indent=2) + "\n", encoding="utf-8")
+        self.custom_ids[kind].discard(entry_id)
+        table = self._table(kind)
+        if entry_id in self._seed[kind]:
+            table[entry_id] = self._seed[kind][entry_id]
+        else:
+            table.pop(entry_id, None)
 
     # ---- checks ----------------------------------------------------------------------------
 

@@ -1,7 +1,7 @@
-# DroneCalc core API (Phase 1, frozen as `API_VERSION = "1.0"`)
+# DroneCalc core API (`API_VERSION = "1.1"`)
 
 Import from `dronecalc.core` only. It has no UI dependencies, so a desktop UI or web front end can
-sit on top unchanged. Breaking changes require bumping `API_VERSION`.
+sit on top unchanged. Breaking changes require bumping `API_VERSION`. 1.1 (Phase 2) only adds names; every 1.0 call works unchanged.
 
 ```python
 from dronecalc.core import (
@@ -26,17 +26,21 @@ rev.max_payload_kg, rev.limiting_factor, rev.result.flight_time_min
 
 | Name | Purpose |
 |---|---|
-| `Database`, `DatabaseError` | Load seed + custom JSON, `add_custom(kind, entry)`, `check()`, `battery_groups()` |
+| `Database`, `DatabaseError` | Load seed + custom JSON, `add_custom` / `update_custom` / `delete_custom` (a deleted override restores the seed entry), `is_custom`, `check()`, `battery_groups(allowed_ids=None)` |
 | `Motor`, `Propeller`, `Battery`, `ESC` | Component models (validated on construction) |
 | `Build` | One motor/prop/ESC set x N rotors + battery + frame mass |
 | `Mission`, `Assumptions`, `Constraints` | Inputs; every default is overridable |
-| `size_forward(mission, db, ...)` | Requirements -> ranked feasible `BuildResult`s, with rejection counts |
+| `size_forward(mission, db, ..., allow=, progress=, cancel=)` | Requirements -> ranked feasible `BuildResult`s, with rejection counts. `allow` restricts component ids per kind; `progress(done, total)`; `cancel()` returning True raises `SizingCancelled` |
 | `size_reverse(build, payload_kg, ...)` | Flight time at a payload and maximum payload (bisection) |
 | `assess_build`, `evaluate_build`, `check_constraints` | Evaluate one build and list constraint `Violation`s |
 | `rank_builds`, `SCORERS` | Pluggable ranking; a scorer is `Callable[[BuildResult], float]`, higher is better |
 | `atmosphere`, `density_altitude_m`, `battery_temp_factor` | Environment |
 | `validate`, `load_reference_points`, `ValidationReport` | Datasheet comparison harness |
-| `SolveError`, `SizingError` | No operating point / candidate cannot be sized |
+| `sweep_payload`, `sweep_altitude`, `SweepPoint` | One build evaluated over a range (plots); never re-implement physics in a front end |
+| `mission_to_dict` / `_from_dict`, same for `assumptions`, `constraints`, `build` | JSON-ready round trips (builds are stored as component ids) |
+| `Project`, `save_project`, `load_project`, `ProjectError` | `.dronecalc.json` files holding inputs only, never results |
+| `write_results_csv` | CSV export of ranked results |
+| `SolveError`, `SizingError`, `SizingCancelled` | No operating point / candidate cannot be sized / run cancelled |
 
 `BuildResult.to_dict()` is JSON-ready and always carries `"label": "predicted, unverified"`.
 

@@ -11,6 +11,7 @@ Reverse mode bisects payload against the hover-throttle and thrust-to-weight lim
 from __future__ import annotations
 
 from collections import Counter
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 
 from dronecalc.core.database import Database
@@ -45,6 +46,10 @@ MAX_MASS_KG_HARD_STOP = 500.0
 
 class SizingError(RuntimeError):
     """A candidate cannot be sized; the message is a short rejection reason code."""
+
+
+class SizingCancelled(RuntimeError):
+    """Raised by ``size_forward`` when its ``cancel`` callback asks it to stop."""
 
 
 # ---- shared helpers ------------------------------------------------------------------------
@@ -177,61 +182,83 @@ def size_forward(
     scorer: str | Scorer = "flight_time",
     top_n: int = 10,
     batteries_per_config: int = 3,
+    allow: Mapping[str, Iterable[str] | None] | None = None,
+    progress: Callable[[int, int], None] | None = None,
+    cancel: Callable[[], bool] | None = None,
 ) -> SizingResult:
-    """Derive ranked feasible builds from mission requirements."""
+    """Derive ranked feasible builds from mission requirements.
+
+    ``allow`` optionally restricts the search to component ids per kind (keys ``motors``,
+    ``props``, ``batteries``, ``escs``; a missing or ``None`` kind means all). ``progress(done,
+    total)`` is called after each motor/prop pair; ``cancel()`` returning True aborts with
+    ``SizingCancelled``.
+    """
     assumptions = assumptions or Assumptions()
     constraints = constraints or Constraints()
     atm = atmosphere(mission.altitude_m, mission.temp_offset_c)
-    groups = db.battery_groups()
+    allowed = {k: (None if v is None else set(v)) for k, v in (allow or {}).items()}
+    groups = db.battery_groups(allowed.get("batteries"))
+    escs = [e for e in db.escs.values() if allowed.get("escs") is None or e.id in allowed["escs"]]
+    pairs = [
+        (motor, prop)
+        for motor in db.motors.values()
+        if allowed.get("motors") is None or motor.id in allowed["motors"]
+        for prop in db.props.values()
+        if (allowed.get("props") is None or prop.id in allowed["props"])
+        and motor.prop_min_in <= prop.diameter_in <= motor.prop_max_in
+    ]
 
     feasible: list[BuildResult] = []
     rejections: Counter = Counter()
     n_candidates = 0
 
-    for motor in db.motors.values():
-        for prop in db.props.values():
-            if not (motor.prop_min_in <= prop.diameter_in <= motor.prop_max_in):
+    for done, (motor, prop) in enumerate(pairs):
+        if cancel is not None and cancel():
+            raise SizingCancelled("sizing cancelled")
+        if progress is not None:
+            progress(done, len(pairs))
+        frame_kg = estimate_frame_mass_kg(
+            prop.diameter_in,
+            mission.n_rotors,
+            assumptions.prop_clearance,
+            mission.frame_mass_override_g,
+        )
+        for (_chemistry, cells), packs in groups.items():
+            if not (motor.min_cells <= cells <= motor.max_cells):
                 continue
-            frame_kg = estimate_frame_mass_kg(
-                prop.diameter_in,
-                mission.n_rotors,
-                assumptions.prop_clearance,
-                mission.frame_mass_override_g,
-            )
-            for (_chemistry, cells), packs in groups.items():
-                if not (motor.min_cells <= cells <= motor.max_cells):
-                    continue
-                esc = _pick_esc(db, motor, cells)
-                if esc is None:
-                    rejections["no_esc"] += 1
-                    continue
-                n_candidates += 1
+            esc = _pick_esc(escs, motor, cells)
+            if esc is None:
+                rejections["no_esc"] += 1
+                continue
+            n_candidates += 1
+            try:
+                cont = size_continuous_battery(
+                    motor, prop, esc, packs, mission, atm, assumptions, frame_kg
+                )
+            except SizingError as exc:
+                rejections[str(exc)] += 1
+                continue
+            matches = [b for b in packs if b.capacity_mah >= cont.capacity_mah]
+            if not matches:
+                rejections["no_matching_battery"] += 1
+                continue
+            for battery in matches[:batteries_per_config]:
+                build = Build(motor, prop, battery, esc, mission.n_rotors, frame_kg)
                 try:
-                    cont = size_continuous_battery(
-                        motor, prop, esc, packs, mission, atm, assumptions, frame_kg
+                    result = assess_build(
+                        build, mission.payload_kg, atm, assumptions, constraints, mission
                     )
-                except SizingError as exc:
-                    rejections[str(exc)] += 1
+                except SolveError:
+                    rejections["no_solution"] += 1
                     continue
-                matches = [b for b in packs if b.capacity_mah >= cont.capacity_mah]
-                if not matches:
-                    rejections["no_matching_battery"] += 1
-                    continue
-                for battery in matches[:batteries_per_config]:
-                    build = Build(motor, prop, battery, esc, mission.n_rotors, frame_kg)
-                    try:
-                        result = assess_build(
-                            build, mission.payload_kg, atm, assumptions, constraints, mission
-                        )
-                    except SolveError:
-                        rejections["no_solution"] += 1
-                        continue
-                    if result.feasible:
-                        feasible.append(result)
-                    else:
-                        for v in result.violations:
-                            rejections[v.code] += 1
+                if result.feasible:
+                    feasible.append(result)
+                else:
+                    for v in result.violations:
+                        rejections[v.code] += 1
 
+    if progress is not None:
+        progress(len(pairs), len(pairs))
     ranked = rank_builds(feasible, scorer)
     warnings = list(db.check(assumptions.fm_range))
     return SizingResult(
@@ -245,11 +272,11 @@ def size_forward(
     )
 
 
-def _pick_esc(db: Database, motor: Motor, cells: int) -> ESC | None:
+def _pick_esc(escs: Iterable[ESC], motor: Motor, cells: int) -> ESC | None:
     """Lightest ESC whose current rating covers the motor limit and whose cell range fits."""
     ok = [
         e
-        for e in db.escs.values()
+        for e in escs
         if e.max_current_a >= motor.max_current_a and e.min_cells <= cells <= e.max_cells
     ]
     return min(ok, key=lambda e: (e.mass_g, e.price_usd, e.id)) if ok else None
@@ -320,6 +347,7 @@ def size_reverse(
 
 __all__ = [
     "ContinuousBattery",
+    "SizingCancelled",
     "ReverseResult",
     "SizingError",
     "SizingResult",

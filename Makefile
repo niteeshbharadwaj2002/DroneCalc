@@ -1,13 +1,16 @@
 VENV := .venv
 PY := $(VENV)/bin/python
 
-.PHONY: setup run test lint format clean
+.PHONY: setup run gui test lint format clean
 
 setup:
 	./scripts/setup.sh
 
 run:
 	$(PY) -m dronecalc
+
+gui:
+	$(PY) -m dronecalc.ui
 
 test:
 	$(PY) -m pytest

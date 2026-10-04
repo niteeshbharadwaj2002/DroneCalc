@@ -33,7 +33,7 @@ fi
 
 .venv/bin/python -m pip install --upgrade pip
 .venv/bin/python -m pip install -r requirements-dev.txt
-.venv/bin/python -m pip install -e .
+.venv/bin/python -m pip install -e ".[ui]"
 
 [ -f .env ] || cp .env.example .env
 

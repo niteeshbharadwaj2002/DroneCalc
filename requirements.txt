@@ -1,3 +1,7 @@
 # Runtime dependencies. Keep in sync with pyproject.toml.
 # Add project libraries here (e.g. numpy, pandas) with version ranges.
 python-dotenv>=1.0
+# Desktop UI (Phase 2). The core (dronecalc.core) does not need these.
+PySide6>=6.5
+pyqtgraph>=0.13
+numpy>=1.24

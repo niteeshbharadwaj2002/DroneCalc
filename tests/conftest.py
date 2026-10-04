@@ -1,3 +1,7 @@
+import os
+
+os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")  # headless Qt for the UI tests
+
 import pytest
 
 from dronecalc.core import Assumptions, Build, Constraints, Database, estimate_frame_mass_kg
