@@ -1,0 +1,12 @@
+README.md
+pyproject.toml
+src/dronecalc/__init__.py
+src/dronecalc/__main__.py
+src/dronecalc/config.py
+src/dronecalc.egg-info/PKG-INFO
+src/dronecalc.egg-info/SOURCES.txt
+src/dronecalc.egg-info/dependency_links.txt
+src/dronecalc.egg-info/entry_points.txt
+src/dronecalc.egg-info/requires.txt
+src/dronecalc.egg-info/top_level.txt
+tests/test_smoke.py

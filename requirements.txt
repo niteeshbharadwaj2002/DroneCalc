@@ -1,0 +1,3 @@
+# Runtime dependencies. Keep in sync with pyproject.toml.
+# Add project libraries here (e.g. numpy, pandas) with version ranges.
+python-dotenv>=1.0

@@ -1,0 +1,2 @@
+[console_scripts]
+dronecalc = dronecalc.__main__:main
